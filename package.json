@@ -1,0 +1,11 @@
+{
+  "name": "jigasi-haproxy-agent",
+  "version": "1.0.0",
+  "description": "agent to monitor jigasi for haproxy",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "author": "",
+  "license": "ISC"
+}
