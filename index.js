@@ -1,8 +1,9 @@
 const net = require('net');
 const fs = require('fs');
+const RestWatcher = require('./RestWatcher')
+
 const port = 7070;
 const host = '0.0.0.0';
-
 let MAX_PARTICIPANTS=process.env.JIGASI_MAX_PARTICIPANTS; 
 if (!MAX_PARTICIPANTS) {
     MAX_PARTICIPANTS=1000;
@@ -16,15 +17,18 @@ if (MAX_PARTICIPANTS <=0) {
 
 const MAX_PERCENTAGE=100
 
-const statsFile = '/tmp/jigasi-stats.json'
-
-function getStatus(file) {
-    const statsRaw = fs.readFileSync(file);
-    const stats = JSON.parse(statsRaw.toString());
-    if (stats.graceful_shutdown) {
+async function getStatusFromWatcher(watcher) {
+    try {
+        const health = await watcher.getHealth();
+        const stats = await watcher.getStats();
+        if (!health || !stats || stats.graceful_shutdown) {
+            return 'drain';
+        } else {
+            return jigasiWeightPercentage(stats.participants)+'%'
+        }    
+    } catch(err) {
+        console.error(err);
         return 'drain';
-    } else {
-        return jigasiWeightPercentage(stats.participants)+'%'
     }
 }
 
@@ -33,6 +37,7 @@ function jigasiWeightPercentage(participants) {
     if (p >= MAX_PARTICIPANTS) {
         p = MAX_PARTICIPANTS;
     }
+    console.log(`w = floor((${MAX_PARTICIPANTS} - ${p}/${MAX_PARTICIPANTS})*${MAX_PERCENTAGE})`)
     let w = Math.floor(((MAX_PARTICIPANTS - p)/MAX_PARTICIPANTS)*MAX_PERCENTAGE);
     //if we go over to 0 or below, set weight to 1 (lowest non-drained state)
     if (w <= 0 ) {
@@ -47,9 +52,14 @@ server.listen(port, host, () => {
     console.log('TCP Server is running on port ' + port + '.');
 });
 
-server.on('connection', function(sock) {
+const options = {};
+const watcher = new RestWatcher(options);
+watcher.start();
+
+server.on('connection', async function(sock) {
     // status='ready';
-    const status = getStatus(statsFile);
+//    const status = getStatusFromFile(statsFile);
+    const status = await getStatusFromWatcher(watcher);
     console.log('REPORTING '+status+' to ' + sock.remoteAddress + ':' + sock.remotePort);
     sock.end(status + '\n');
 });
