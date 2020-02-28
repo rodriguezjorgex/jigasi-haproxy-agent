@@ -1,86 +1,44 @@
+const envalid = require('envalid');
 const net = require('net');
-const RestWatcher = require('./RestWatcher');
+const JigasiAgent = require('./JigasiAgent');
 const Logger = require('./Logger');
 
 const log = new Logger();
 
-const port = 7070;
-const host = '0.0.0.0';
-
-let MAX_PARTICIPANTS = process.env.JIGASI_MAX_PARTICIPANTS;
-
-if (!MAX_PARTICIPANTS) {
-    MAX_PARTICIPANTS = 250;
-}
-
-if (MAX_PARTICIPANTS <= 0) {
-    log.error('JIGASI_MAX_PARTICIPANTS needs to be a positive value, exiting');
-    log.error('Current Environment', { 'env': process.env });
-    process.exit(100);
-}
-
-const MAX_PERCENTAGE = 100;
-
-/**
- * use watcher object to retrieve stats and health
- * @param {RestWatcher} watcher
- */
-async function getStatusFromWatcher(watcher) {
-    try {
-        const health = await watcher.getHealth();
-        const stats = await watcher.getStats();
-
-        if (!health || !stats || stats.graceful_shutdown) {
-            return 'drain';
-        }
-
-        return `${jigasiWeightPercentage(stats.participants)}%`;
-
-    } catch (err) {
-        log.error('error in jigasi status', { err });
-
-        return 'drain';
-    }
-}
-
-/**
- * calculate weight from number of participants
- * @param {integer} participants
- */
-function jigasiWeightPercentage(participants) {
-    let p = Math.round(participants);
-
-    if (p >= MAX_PARTICIPANTS) {
-        p = MAX_PARTICIPANTS;
-    }
-    log.info(`w = floor((${MAX_PARTICIPANTS} - ${p}/${MAX_PARTICIPANTS})*${MAX_PERCENTAGE})`);
-    let w = Math.floor(((MAX_PARTICIPANTS - p) / MAX_PARTICIPANTS) * MAX_PERCENTAGE);
-
-    // if we go over to 0 or below, set weight to 1 (lowest non-drained state)
-
-    if (w <= 0) {
-        w = 1;
-    }
-
-    return w;
-}
-
-const server = net.createServer();
-
-server.listen(port, host, () => {
-    log.info(`TCP Server is running on port ${port}.`);
+// Validate required environment variables
+const env = envalid.cleanEnv(process.env, {
+    API_PORT: envalid.num({ default: 7070 }),
+    JIGASI_HOST: envalid.host({ default: 'localhost' }),
+    JIGASI_PORT: envalid.num({ default: 8788 }),
+    JIGASI_MAX_PARTICIPANTS: envalid.num({ default: 250 }),
+    JIGASI_MAX_PERCENTAGE: envalid.num({ default: 100 })
 });
 
-const options = { logger: log };
-const watcher = new RestWatcher(options);
+// initialize a new agent for watching jigasi health and stats
+const options = {
+    jigasiHost: env.JIGASI_HOST,
+    jigasiPort: env.JIGASI_PORT,
+    maxParticipants: env.MAX_PARTICIPANTS,
+    maxPercentage: env.MAX_PERCENTAGE,
+    logger: log
+};
+const agent = new JigasiAgent(options);
 
-watcher.start();
+// start watching jigasi stats and health
+agent.start();
 
-server.on('connection', async sock => {
-    // status='ready';
-//    const status = getStatusFromFile(statsFile);
-    const status = await getStatusFromWatcher(watcher);
+// create server and start listening for TCP connections
+const server = net.createServer();
+const host = '0.0.0.0';
 
-    log.info(`${status} reported to ${sock.remoteAddress}:${sock.remotePort}`, {status});
+server.listen(env.API_PORT, host, () => {
+    log.info(`TCP Server is running on port ${env.API_PORT}.`);
+});
+
+// handle incoming TCP requests
+server.on('connection', sock => {
+    const status = agent.getStatusFromWatcher();
+
+    log.info(`${status} reported to ${sock.remoteAddress}:${sock.remotePort}`, { status });
     sock.end(`${status}\n`);
 });

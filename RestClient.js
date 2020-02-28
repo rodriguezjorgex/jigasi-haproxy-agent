@@ -14,6 +14,7 @@ class RestClient {
             host: 'localhost',
             port: 8788,
             debug: false,
+            timeout: 1000,
             ...options
         };
         if (this._options.hasOwnProperty('logger')) {
@@ -42,8 +43,11 @@ class RestClient {
      * @param {string} url
      */
     async _get(url) {
+        const timeout = this._options.timeout;
+        const debug = this._options.debug;
+
         return new Promise((resolve, reject) => {
-            const options = { timeout: 1000 };
+            const options = { timeout };
 
             http.get(url, options, res => {
                 const { statusCode } = res;
@@ -59,7 +63,7 @@ class RestClient {
                                     + `Expected application/json but received ${contentType}`);
                 }
                 if (error) {
-                    if (this._options.debug) {
+                    if (debug) {
                         this._logger.error(error.message, { err: error });
                     }
 
@@ -82,21 +86,27 @@ class RestClient {
 
                         resolve(parsedData);
                     } catch (e) {
-                        if (this._options.debug) {
+                        if (debug) {
                             this._logger.error(e.message, { err: e });
                         }
                         reject(e);
                     }
                 });
             }).on('error', e => {
-                if (this._options.debug) {
+                if (debug) {
                     this._logger.error(`HTTP error: ${e.message}`, { err: e });
                 }
                 reject(e);
+            })
+            .on('timeout', () => {
+                if (debug) {
+                    this._logger.error(`HTTP TIMEOUT on ${url} after ${this._options.timeout}ms`);
+                }
+
+                reject(`HTTP TIMEOUT on ${url} after ${this._options.timeout}ms`);
             });
         });
     }
-
 }
 
 module.exports = RestClient;

@@ -17,13 +17,13 @@ class RestWatcher extends EventEmitter {
             statsInterval: 10000,
             ...options
         };
-        if (!this._options.hasOwnProperty('restClient')) {
-            this._options.restClient = new RestClient();
-        }
         if (this._options.hasOwnProperty('logger')) {
             this._logger = this._options.logger;
         } else {
             this._logger = new Logger();
+        }
+        if (!this._options.hasOwnProperty('restClient')) {
+            this._options.restClient = new RestClient({ logger: this._logger });
         }
 
         this._health = false;
