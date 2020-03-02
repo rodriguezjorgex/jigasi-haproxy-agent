@@ -57,11 +57,18 @@ class JigasiAgent {
     jigasiWeightPercentage(participants) {
         let p = Math.round(participants);
 
-        if (p >= this.maxParticipants) {
-            p = this.maxParticipants;
+        if (p >= this._options.maxParticipants) {
+            p = this._options.maxParticipants;
         }
-        this._logger.info(`w = floor((${this.maxParticipants} - ${p}/${this.maxParticipants})*${this.maxPercentage})`);
-        let w = Math.floor(((this.maxParticipants - p) / this.maxParticipants) * this.maxPercentage);
+        let w = Math.floor((
+            (this._options.maxParticipants - p) / this._options.maxParticipants)
+            * this._options.maxPercentage
+        );
+
+        this._logger.info(`
+            w = floor((${this._options.maxParticipants} - ${p}/${this._options.maxParticipants})
+             * ${this._options.maxPercentage})
+        `);
 
         // if we go over to 0 or below, set weight to 1 (lowest non-drained state)
 

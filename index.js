@@ -10,8 +10,8 @@ const env = envalid.cleanEnv(process.env, {
     API_PORT: envalid.num({ default: 7070 }),
     JIGASI_HOST: envalid.host({ default: 'localhost' }),
     JIGASI_PORT: envalid.num({ default: 8788 }),
-    JIGASI_MAX_PARTICIPANTS: envalid.num({ default: 250 }),
-    JIGASI_MAX_PERCENTAGE: envalid.num({ default: 100 })
+    MAX_PARTICIPANTS: envalid.num({ default: 250 }),
+    MAX_PERCENTAGE: envalid.num({ default: 100 })
 });
 
 // initialize a new agent for watching jigasi health and stats
