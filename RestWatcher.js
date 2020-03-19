@@ -14,7 +14,7 @@ class RestWatcher extends EventEmitter {
         super();
         this._options = {
             healthInterval: 30000,
-            statsInterval: 10000,
+            statsInterval: 5000,
             ...options
         };
         if (this._options.hasOwnProperty('logger')) {
