@@ -31,14 +31,27 @@ agent.start();
 const server = net.createServer();
 const host = '0.0.0.0';
 
-server.listen(env.API_PORT, host, () => {
-    log.info(`TCP Server is running on port ${env.API_PORT}.`);
+server.on('error', error => {
+    log.error('Error reported in server', { error });
 });
 
 // handle incoming TCP requests
 server.on('connection', sock => {
+    sock.on('error', error => {
+        if (error.code === 'ECONNRESET') {
+            // do something here, maybe log?
+            log.warn('Socket connection reset');
+        } else {
+            log.error('Error reported on socket', { error });
+        }
+    });
+
     const status = agent.getStatusFromWatcher();
 
     log.info(`${status} reported to ${sock.remoteAddress}:${sock.remotePort}`, { status });
     sock.end(`${status}\n`);
+});
+
+server.listen(env.API_PORT, host, () => {
+    log.info(`TCP Server is running on port ${env.API_PORT}.`);
 });
