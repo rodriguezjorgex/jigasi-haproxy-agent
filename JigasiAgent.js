@@ -34,7 +34,9 @@ class JigasiAgent {
      * use watcher object to retrieve stats and health
      * @param {RestWatcher} watcher
      */
-    getStatusFromWatcher() {
+    getStatusFromWatcher(requester) {
+        const lastStatus = {};
+
         try {
             const health = this._watcher.getHealth();
             const stats = this._watcher.getStats();
@@ -47,6 +49,8 @@ class JigasiAgent {
                 this._stats.gauge('participants', 0);
                 this._stats.gauge('percentage', 0);
 
+                lastStatus[requester] = 'drain';
+
                 return 'drain';
             }
 
@@ -56,10 +60,17 @@ class JigasiAgent {
             this._stats.gauge('participants', stats.participants);
             this._stats.gauge('percentage', percentage);
 
+            // if we returned 'drain' last time, return 'ready' now to come back online
+            if (!lastStatus.hasOwnProperty(requester) || (lastStatus[requester] === 'drain')) {
+                return 'ready';
+            }
+
             return `${percentage}%`;
 
         } catch (err) {
             this._logger.error('error in jigasi status', { err });
+
+            lastStatus[requester] = 'drain';
 
             return 'drain';
         }

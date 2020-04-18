@@ -46,7 +46,7 @@ server.on('connection', sock => {
         }
     });
 
-    const status = agent.getStatusFromWatcher();
+    const status = agent.getStatusFromWatcher(sock.remoteAddress);
 
     log.info(`${status} reported to ${sock.remoteAddress}:${sock.remotePort}`, { status });
     sock.end(`${status}\n`);
