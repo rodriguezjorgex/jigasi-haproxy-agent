@@ -28,6 +28,8 @@ class JigasiAgent {
 
         this._initWatcher();
         this._initStats();
+
+        this._lastStatus = {};
     }
 
     /**
@@ -35,8 +37,6 @@ class JigasiAgent {
      * @param {RestWatcher} watcher
      */
     getStatusFromWatcher(requester) {
-        const lastStatus = {};
-
         try {
             const health = this._watcher.getHealth();
             const stats = this._watcher.getStats();
@@ -49,7 +49,7 @@ class JigasiAgent {
                 this._stats.gauge('participants', 0);
                 this._stats.gauge('percentage', 0);
 
-                lastStatus[requester] = 'drain';
+                this._lastStatus[requester] = 'drain';
 
                 return 'drain';
             }
@@ -61,7 +61,9 @@ class JigasiAgent {
             this._stats.gauge('percentage', percentage);
 
             // if we returned 'drain' last time, return 'ready' now to come back online
-            if (!lastStatus.hasOwnProperty(requester) || (lastStatus[requester] === 'drain')) {
+            if (!this._lastStatus.hasOwnProperty(requester) || (this._lastStatus[requester] === 'drain')) {
+                this._lastStatus[requester] = 'ready';
+
                 return 'ready';
             }
 
@@ -70,7 +72,7 @@ class JigasiAgent {
         } catch (err) {
             this._logger.error('error in jigasi status', { err });
 
-            lastStatus[requester] = 'drain';
+            this._lastStatus[requester] = 'drain';
 
             return 'drain';
         }
