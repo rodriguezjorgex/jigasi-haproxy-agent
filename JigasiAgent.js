@@ -48,13 +48,22 @@ class JigasiAgent {
 
                 this._stats.gauge('participants', 0);
                 this._stats.gauge('percentage', 0);
+                this._stats.gauge('conferences', 0);
+                this._stats.gauge('stress_level', 0);
 
                 this._lastStatus[requester] = 'drain';
 
                 return 'drain';
             }
 
-            const percentage = this.jigasiWeightPercentage(stats.participants);
+            let percentage;
+
+            if (stats.hasOwnProperty('stress_level')) {
+                percentage = this.jigasiWeightPercentageFromStress(stats.stress_level);
+                this._stats.gauge('stress_level', stats.stress_level);
+            } else {
+                percentage = this.jigasiWeightPercentage(stats.participants);
+            }
 
             this._stats.gauge('drain', 0);
             this._stats.gauge('participants', stats.participants);
@@ -76,6 +85,27 @@ class JigasiAgent {
 
             return 'drain';
         }
+    }
+
+    /**
+     * calculate weight from stress level
+     * @param {float} stressLevel
+     */
+    jigasiWeightPercentageFromStress(stressLevel) {
+        let w = Math.floor((1 - stressLevel) * this._options.maxPercentage);
+
+        // this._logger.info(`
+        //     w = floor((${this._options.maxParticipants} - ${p}/${this._options.maxParticipants})
+        //      * ${this._options.maxPercentage})
+        // `);
+
+        // if we go over to 0 or below, set weight to 1 (lowest non-drained state)
+
+        if (w <= 0) {
+            w = 1;
+        }
+
+        return w;
     }
 
     /**

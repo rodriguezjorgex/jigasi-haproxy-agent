@@ -3,7 +3,8 @@ const healthyJibriResponse = {};
 
 const healthyStatsResponse = {
     'graceful_shutdown': 0,
-    'participants': 0
+    'participants': 0,
+    'stress_level': 0
 };
 
 const unhealthyJibriResponse = false;
