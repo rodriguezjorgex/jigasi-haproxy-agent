@@ -50,6 +50,7 @@ server.on('connection', sock => {
 
     log.info(`${status} reported to ${sock.remoteAddress}:${sock.remotePort}`, { status });
     sock.end(`${status}\n`);
+    sock.destroy();
 });
 
 server.listen(env.API_PORT, host, () => {
