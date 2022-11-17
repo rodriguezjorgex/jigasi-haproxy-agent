@@ -29,19 +29,24 @@ class JigasiAgent {
         this._initWatcher();
         this._initStats();
 
-        this._lastStatus = {};
     }
 
     /**
      * use watcher object to retrieve stats and health
      * @param {RestWatcher} watcher
      */
-    getStatusFromWatcher(requester) {
+    getStatusFromWatcher() {
+        let percentage = 0;
+
+        let status = 'drain';
+
         try {
             const health = this._watcher.getHealth();
             const stats = this._watcher.getStats();
 
             this._stats.increment('requests');
+
+            // when unhealthy or no stats available, or in graceful shutdown, drain the instance (no new calls)
             if (!health || !stats || stats.graceful_shutdown) {
                 this._stats.gauge('drain', 1);
                 this._stats.increment('total_drain');
@@ -51,40 +56,33 @@ class JigasiAgent {
                 this._stats.gauge('conferences', 0);
                 this._stats.gauge('stress_level', 0);
 
-                this._lastStatus[requester] = 'drain';
-
-                return 'drain';
-            }
-
-            let percentage;
-
-            if (stats.hasOwnProperty('stress_level')) {
-                percentage = this.jigasiWeightPercentageFromStress(stats.stress_level);
-                this._stats.gauge('stress_level', stats.stress_level);
+                status = 'drain';
             } else {
-                percentage = this.jigasiWeightPercentage(stats.participants);
+                // if we have all the needed information, then we are 'ready'
+                status = 'ready';
+
+                // based on either stress level or participant count, calculate new desired weight
+                if (stats.hasOwnProperty('stress_level')) {
+                    percentage = this.jigasiWeightPercentageFromStress(stats.stress_level);
+                    this._stats.gauge('stress_level', stats.stress_level);
+                } else {
+                    percentage = this.jigasiWeightPercentage(stats.participants);
+                }
+
+                // record stats for this run
+                this._stats.gauge('drain', 0);
+                this._stats.gauge('participants', stats.participants);
+                this._stats.gauge('percentage', percentage);
             }
-
-            this._stats.gauge('drain', 0);
-            this._stats.gauge('participants', stats.participants);
-            this._stats.gauge('percentage', percentage);
-
-            // if we returned 'drain' last time, return 'ready' now to come back online
-            if (!this._lastStatus.hasOwnProperty(requester) || (this._lastStatus[requester] === 'drain')) {
-                this._lastStatus[requester] = 'ready';
-
-                return 'ready';
-            }
-
-            return `${percentage}%`;
-
         } catch (err) {
+            // any errors?  drain ourselves
             this._logger.error('error in jigasi status', { err });
 
-            this._lastStatus[requester] = 'drain';
-
-            return 'drain';
+            status = 'drain';
         }
+
+        // should look like 'up ready 100%' or 'up drain 0%'
+        return `up ${status} ${percentage}%`;
     }
 
     /**
