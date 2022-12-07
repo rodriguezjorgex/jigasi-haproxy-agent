@@ -26,7 +26,7 @@ class JigasiAgent {
             this._logger = new Logger();
         }
 
-        this._initWatcher();
+        this._initWatcher(options);
         this._initStats();
 
     }
